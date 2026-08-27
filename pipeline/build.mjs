@@ -124,6 +124,12 @@ const busList = busArgs.filter((a) => a !== '--all');
 // 11 = trolleybus riding the bus network in green; 0 = tram, 1 = metro and
 // 109 = HÉV riding the rail mode in their official line colors). Without the filter `--all` on the bus mode would swallow the
 // rail lines too.
+// Display labels for line keys that carry a pipeline-only disambiguator.
+// The KEY has to stay unique — it drives route merging, colour lookup and
+// selection — but the map must print what the city prints. Filled while
+// re-keying, applied to the display strings just before writing.
+const LBL = new Map();
+
 const MODES = [{
   mode: 'bus', label: 'buses', osmFile: 'data/osm/paris.json',
   graphMode: 'road', color: '#0059a9', colorDark: '#00294f',
@@ -167,7 +173,11 @@ if (tramAll || metroSel.length) MODES.push({
   color: '#d6212b', colorDark: '#7c1116',
   all: tramAll, lines: tramAll ? [] : metroSel,
   feeds: [
-    { tag: 'idfm', dir: 'data/gtfs', mapKey: (sn) => 'M' + sn, routeTypes: ['1'],
+    { tag: 'idfm', dir: 'data/gtfs',
+      // nine metro numbers are also bus numbers in the IDFM scope, so the key
+      // keeps an M; the roundel in the street says 1, and so does the map —
+      // the official line colour is what tells it from a navy bus 1.
+      mapKey: (sn) => { const k = 'M' + sn; LBL.set(k, sn); return k; }, routeTypes: ['1'],
       skipRoute: (r) => !SCOPE_METRO.has(r.route_id) },
   ],
 });
@@ -1575,6 +1585,31 @@ for (const f of routeFeatures) for (const [lon, lat] of f.geometry.coordinates) 
   if (lat < bLatMin) bLatMin = lat; if (lat > bLatMax) bLatMax = lat;
 }
 
+// ---------- display labels ----------
+// The keys keep their prefixes; every string the map PRINTS loses them. Two
+// keys can now print the same number — that is the point, because the street
+// prints the same number — so each colour group is deduplicated on its own
+// (the groups ride in separate properties, so a green 9 and a navy 9 both
+// survive: there the colour is the difference).
+const relabel = (s) => {
+  const out = [];
+  for (const k of s.split(', ')) {
+    const v = LBL.get(k) ?? k;
+    if (!out.includes(v)) out.push(v);
+  }
+  return out.join(', ');
+};
+for (const features of [routeFeatures, streetFeatures, labelFeatures, stopFeatures, badgeFeatures]) {
+  for (const f of features) {
+    const p = f.properties;
+    for (const k of ['lines', 'busLines', 'tLines', 'ntLines', 'mLines', 'nmLines']) {
+      if (typeof p[k] === 'string' && p[k]) p[k] = relabel(p[k]);
+    }
+    if (typeof p.line === 'string' && LBL.has(p.line)) p.lbl = LBL.get(p.line);
+  }
+}
+log(`Display labels: ${LBL.size} keys print the number the city signs`);
+
 const outDir = join(ROOT, 'data/out');
 mkdirSync(outDir, { recursive: true });
 const fc = (features) => JSON.stringify({ type: 'FeatureCollection', features });
@@ -1590,6 +1625,8 @@ writeFileSync(join(outDir, 'meta.json'), JSON.stringify({
   bbox: [bLonMin, bLatMin, bLonMax, bLatMax],
   badgeBands: BADGE_BANDS,
   modes: MODES.map((m) => ({ mode: m.mode, label: m.label, color: m.color })),
-  lines: metaLines,
+  // the chips keep `line` as their value (selection matches keys) and print
+  // `label` where the city's number differs from the pipeline's key
+  lines: metaLines.map((l) => (LBL.has(l.line) ? { ...l, label: LBL.get(l.line) } : l)),
 }, null, 2));
 log(`Wrote data/out/{route,streets,labels,street-names,stops,badges,gtfs-shape}.geojson + meta.json`);
