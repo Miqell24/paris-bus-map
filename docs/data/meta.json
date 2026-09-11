@@ -11211,7 +11211,7 @@
       "dirs": [
         {
           "dir": "0",
-          "headsign": "Nanterre-Ville RER -",
+          "headsign": "Nanterre-Ville RER",
           "variants": 3,
           "tripCount": 525,
           "stops": 25,
@@ -15921,7 +15921,7 @@
       "rank": 1
     },
     {
-      "line": "AMIBUS",
+      "line": "Amibus",
       "mode": "bus",
       "color": "#0059a9",
       "dirs": [
@@ -16000,7 +16000,7 @@
       "rank": 1
     },
     {
-      "line": "AUDONIE",
+      "line": "Audonienne",
       "mode": "bus",
       "color": "#0059a9",
       "dirs": [
@@ -16050,7 +16050,7 @@
       "rank": 1
     },
     {
-      "line": "BATIGNO",
+      "line": "Batignolles",
       "mode": "bus",
       "color": "#0059a9",
       "dirs": [
@@ -16079,7 +16079,7 @@
       "rank": 1
     },
     {
-      "line": "BIEVRES",
+      "line": "Bièvre",
       "mode": "bus",
       "color": "#0059a9",
       "dirs": [
@@ -16129,7 +16129,7 @@
       "rank": 1
     },
     {
-      "line": "CHARONNE",
+      "line": "Charonne",
       "mode": "bus",
       "color": "#0059a9",
       "dirs": [
@@ -16208,7 +16208,7 @@
       "rank": 1
     },
     {
-      "line": "CHOISYBUS",
+      "line": "Choisybus",
       "mode": "bus",
       "color": "#0059a9",
       "dirs": [
@@ -16287,7 +16287,7 @@
       "rank": 1
     },
     {
-      "line": "EOLIEN",
+      "line": "Éolien",
       "mode": "bus",
       "color": "#0059a9",
       "dirs": [
@@ -16524,7 +16524,7 @@
       "rank": 1
     },
     {
-      "line": "MONTBUS",
+      "line": "Montbus",
       "mode": "bus",
       "color": "#0059a9",
       "dirs": [
@@ -16624,7 +16624,7 @@
       "rank": 1
     },
     {
-      "line": "P'TIT BUS",
+      "line": "P'tit Bus",
       "mode": "bus",
       "color": "#0059a9",
       "dirs": [
@@ -16753,7 +16753,7 @@
       "rank": 1
     },
     {
-      "line": "RIVER",
+      "line": "River",
       "mode": "bus",
       "color": "#0059a9",
       "dirs": [
@@ -16911,7 +16911,7 @@
       "rank": 1
     },
     {
-      "line": "THIAIS",
+      "line": "Thiais",
       "mode": "bus",
       "color": "#0059a9",
       "dirs": [
@@ -16961,7 +16961,7 @@
       "rank": 1
     },
     {
-      "line": "TILLBUS",
+      "line": "Tillbus",
       "mode": "bus",
       "color": "#0059a9",
       "dirs": [
@@ -17514,7 +17514,7 @@
       "rank": 1
     },
     {
-      "line": "VITAVIL",
+      "line": "Vitavil",
       "mode": "bus",
       "color": "#0059a9",
       "dirs": [
