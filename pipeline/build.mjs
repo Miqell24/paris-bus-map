@@ -5,10 +5,12 @@
 // trams T1–T14 (0) and the whole metro M1–M14 + 3bis/7bis (1). Metro lines are
 // keyed M1…M14 (the feed ships bare numbers) and keep their official colors
 // straight from routes.txt, triggering the engine's metro treatment (wide
-// ribbon, station discs, always-on names) via the M-prefixed keys. RER and
-// Transilien (2), the Montmartre funicular (7) and the Câble C1 gondola (6)
-// stay off the map; rail-replacement and airport coaches are cut in scope.mjs.
-// Usage: node pipeline/build.mjs [--all | lines...] [--tram all|T3a,M2]
+// ribbon, station discs, always-on names) via the M-prefixed keys. Since
+// 14.09.2026 the RER A–E and Transilien H–V (2) ride the same treatment to
+// their real ends, every branch drawn (see `branches` below), and so do the
+// Montmartre funicular (7), the Câble C1 gondola (6) and the CDGVAL / ORLYVAL
+// people movers; rail-replacement and airport coaches are cut in scope.mjs.
+// Usage: node pipeline/build.mjs [--all | lines...] [--tram all|T3a,M2,RER-A]
 // Results land in shared files with properties.color/mode, so the frontend styles
 // them data-driven.
 import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from 'node:fs';
@@ -28,6 +30,7 @@ if (!existsSync(SCOPE_FILE)) {
 }
 const SCOPE = JSON.parse(readFileSync(SCOPE_FILE, 'utf8'));
 const SCOPE_BUS = new Set(SCOPE.bus), SCOPE_TRAM = new Set(SCOPE.tram), SCOPE_METRO = new Set(SCOPE.metro);
+const SCOPE_RAIL = new Set(SCOPE.rail || []), SCOPE_EXTRA = new Set(SCOPE.extra || []);
 // m — longer jumps between shape points are GTFS data gaps. Inside a real gap
 // the HMM bridges by routing instead of interpolating observations, which would
 // fabricate straight-line detours through side streets.
@@ -154,10 +157,15 @@ const MODES = [{
 // and Pipera), so a mixed graph lured Viterbi onto disconnected tram rails
 // and broke the line. railKeep filters the OSM ways per cfg before building.
 const tramAll = tramLines.length === 1 && tramLines[0] === 'all';
-// M-keys get the metro treatment; trams are everything else (T1…T14)
-const isRailTrunk = (l) => /^M\d/.test(l);
+// M-keys get the metro treatment, and so do the RER (RER-A…), the Transilien
+// (TN-H…) and the four odd ones (funicular, gondola, two VALs); trams are
+// everything else (T1…T14)
+const EXTRA_KEYS = new Set(['FUN', 'CABLE-C1', 'CDGVAL', 'ORLYVAL']);
+const isRailTrunk = (l) => /^(M\d|RER-|TN-)/.test(l) || EXTRA_KEYS.has(l);
 const tramSel = tramLines.filter((l) => !isRailTrunk(l));
 const metroSel = tramLines.filter((l) => /^M\d/.test(l));
+const railSel = tramLines.filter((l) => /^(RER-|TN-)/.test(l));
+const extraSel = tramLines.filter((l) => EXTRA_KEYS.has(l));
 if (tramAll || tramSel.length) MODES.push({
   // T4/T11/T13 are tram-trains on converted railway tagged light_rail, and
   // T12's southern half (Épinay-sur-Orge – Massy) still carries plain
@@ -188,6 +196,51 @@ if (tramAll || metroSel.length) MODES.push({
       // the official line colour is what tells it from a navy bus 1.
       mapKey: (sn) => { const k = 'M' + sn; LBL.set(k, sn); return k; }, routeTypes: ['1'],
       skipRoute: (r) => !SCOPE_METRO.has(r.route_id) },
+  ],
+});
+// The RER and the Transilien (14.09.2026): five RER lines and nine Transilien
+// lines in the IDFM colours, drawn to their real ends — the network reaches
+// Montargis, Dreux, Gisors, Crépy-en-Valois and Château-Thierry, so the rails
+// come from a wider cut (data/osm/idf-rail.json, pipeline/pbf-cut.py). One
+// letter serves many branches (RER C alone ends at eight places), hence
+// `branches`: instead of one representative per direction, the smallest set
+// of stopping patterns that calls at every station of the line is drawn.
+// Keys carry RER-/TN- (a bus J and a bus V ride in this scope), the map prints
+// the letter the station signs show.
+if (tramAll || railSel.length) MODES.push({
+  mode: 'tram', label: 'RER & Transilien', osmFile: 'data/osm/idf-rail.json',
+  graphMode: 'tram', railKeep: new Set(['rail']),
+  color: '#d6212b', colorDark: '#7c1116',
+  all: tramAll, lines: tramAll ? [] : railSel,
+  feeds: [
+    { tag: 'idfm', dir: 'data/gtfs', routeTypes: ['2'], branches: true,
+      // the RER letters are A–E, the Transilien letters H–V
+      mapKey: (sn) => {
+        const k = (/^[A-E]$/.test(sn) ? 'RER-' : 'TN-') + sn;
+        LBL.set(k, sn); return k;
+      },
+      skipRoute: (r) => !SCOPE_RAIL.has(r.route_id) },
+  ],
+});
+// The four that are neither metro nor train: the Montmartre funicular, the
+// Câble C1 gondola (Créteil – Villeneuve-Saint-Georges, since 12.2025) and
+// the airport people movers CDGVAL and ORLYVAL (tagged railway=subway in OSM).
+// Official colours, station discs; a graph of their own, so none of them can
+// be lured onto a metro tunnel or a main line.
+if (tramAll || extraSel.length) MODES.push({
+  mode: 'tram', label: 'funicular, cable car & airport shuttles', osmFile: 'data/osm/idf-rail.json',
+  graphMode: 'tram', railKeep: new Set(['funicular', 'subway']),
+  railExtra: (e) => /^(gondola|cable_car)$/.test(e.tags?.aerialway || ''),
+  color: '#d6212b', colorDark: '#7c1116',
+  all: tramAll, lines: tramAll ? [] : extraSel,
+  feeds: [
+    { tag: 'idfm', dir: 'data/gtfs', routeTypes: ['0', '6', '7'], ownColors: true,
+      mapKey: (sn) => {
+        const k = { FUN: 'FUN', C1: 'CABLE-C1', 'CDG VAL': 'CDGVAL', ORLYVAL: 'ORLYVAL' }[sn];
+        if (k) LBL.set(k, { FUN: 'Funiculaire', 'CABLE-C1': 'C1', CDGVAL: 'CDGVAL', ORLYVAL: 'Orlyval' }[k]);
+        return k || null;
+      },
+      skipRoute: (r) => !SCOPE_EXTRA.has(r.route_id) },
   ],
 });
 
@@ -308,9 +361,10 @@ async function processMode(cfg) {
         cfg.trolleySet.add(key); TROLLEYS.add(key);
         cfg.lineColors[key] = TROLLEY_GREEN;
         cfg.lineColorsDark[key] = TROLLEY_DARK;
-      } else if (['1', '109'].includes(r.route_type) && /^[0-9A-F]{6}$/i.test(r.route_color || '')) {
-        // BKK ships the official line colors — metro M1 yellow, M2 red, M3
-        // blue, M4 green, and the HÉV lines H5 purple … H8/H9 pink
+      } else if ((['1', '2', '6', '7', '109'].includes(r.route_type) || feed.ownColors) && /^[0-9A-F]{6}$/i.test(r.route_color || '')) {
+        // IDFM ships the official line colors — the metro, the RER and
+        // Transilien letters, the funicular, the C1 and the two VALs (the
+        // trams, route_type 0, keep the family red: ownColors is per feed)
         cfg.lineColors[key] = '#' + r.route_color.toUpperCase();
         cfg.lineColorsDark[key] = darken('#' + r.route_color, 0.45);
       }
@@ -378,6 +432,7 @@ async function processMode(cfg) {
       if (unsorted) log(`WARNING: shapes.txt not sorted by shape_pt_sequence (${unsorted} rows) — variant lengths approximate`);
     }
     const REP_MIN_SHARE = 0.15;
+    const BRANCH_MIN_TRIPS = 3;
     let longerReps = 0, longerM = 0;
 
     const feedReps = [];
@@ -385,6 +440,23 @@ async function processMode(cfg) {
       const dirs = byLineDir.get(L);
       for (const dir of [...dirs.keys()].sort()) {
         const m = dirs.get(dir);
+        if (feed.branches) {
+          // every regular stopping pattern is a candidate here; the cover pass
+          // after the stop names are read keeps the fewest that call at every
+          // station of the line (a pattern run by fewer than BRANCH_MIN_TRIPS
+          // trips — a depot working, a diversion — never draws a branch)
+          const top = Math.max(...[...m.values()].map((e) => e.count));
+          for (const [shapeId, e] of m) {
+            if (e.count < Math.min(BRANCH_MIN_TRIPS, top)) continue;
+            feedReps.push({
+              line: L, dir, shapeId, feedTag: feed.tag,
+              headsign: e.trips[0]?.headsign || '',
+              candTrips: new Set(e.trips.map((x) => x.trip_id)),
+              variants: m.size, tripCount: e.count, branchCand: true,
+            });
+          }
+          continue;
+        }
         let best = null;
         for (const [shapeId, e] of m) if (!best || e.count > best.e.count) best = { shapeId, e };
         if (hasShapes && m.size > 1) {
@@ -444,6 +516,62 @@ async function processMode(cfg) {
       });
     }
 
+    // Branch cover (feeds with `branches`, the RER and Transilien): greedy set
+    // cover over station NAMES — take the pattern that adds the most stations
+    // not yet drawn (ties: the busier one), until every station of the line is
+    // on a drawn pattern. The longest trunk goes first, each branch then adds
+    // its own tail; express patterns add no station and are never drawn, and a
+    // reverse pattern adds none either (one pattern per branch — both tracks of
+    // a railway are one ribbon on this map).
+    if (feed.branches) {
+      const kept = [], byLine = new Map();
+      for (const r of feedReps) {
+        if (!r.branchCand) { kept.push(r); continue; }
+        let a = byLine.get(r.line);
+        if (!a) byLine.set(r.line, (a = []));
+        a.push(r);
+      }
+      for (const [L, cands] of byLine) {
+        const names = new Map(cands.map((r) =>
+          [r, new Set(r.stopSeq.map((s) => stopsById.get(s.stopId)?.name).filter(Boolean))]));
+        const todo = new Set([...names.values()].flatMap((s) => [...s]));
+        const total = todo.size;
+        const chosen = [];
+        while (todo.size) {
+          let best = null, bestScore = 0;
+          for (const r of cands) {
+            if (chosen.includes(r)) continue;
+            let gain = 0;
+            for (const n of names.get(r)) if (todo.has(n)) gain++;
+            const score = gain ? gain * 1e7 + r.tripCount : 0;
+            if (score > bestScore) { bestScore = score; best = r; }
+          }
+          if (!best) break;
+          chosen.push(best);
+          for (const n of names.get(best)) todo.delete(n);
+        }
+        const perDir = new Map();
+        for (const r of chosen) {
+          const k = perDir.get(r.dir) || 0;
+          perDir.set(r.dir, k + 1);
+          if (k) r.dir = `${r.dir}.${k}`;
+          delete r.branchCand;
+          // IDFM's rail headsigns are MISSION CODES (NARA, SARA, PIBU…), not
+          // places — the pattern's last station is what a passenger reads
+          const last = stopsById.get(r.stopSeq[r.stopSeq.length - 1]?.stopId)?.name;
+          if (last) r.headsign = last;
+          kept.push(r);
+        }
+        const ends = (r) => {
+          const a = stopsById.get(r.stopSeq[0]?.stopId)?.name, b = stopsById.get(r.stopSeq[r.stopSeq.length - 1]?.stopId)?.name;
+          return `${a} – ${b}`;
+        };
+        log(`  branches ${L}: ${chosen.length} of ${cands.length} patterns call at all ${total} stations: ${chosen.map(ends).join(' | ')}`);
+      }
+      feedReps.length = 0;
+      feedReps.push(...kept);
+    }
+
     if (hasShapes) {
       const shapeIds = new Set(feedReps.map((r) => r.shapeId));
       const shapePts = new Map();
@@ -456,6 +584,27 @@ async function processMode(cfg) {
       for (const r of feedReps) {
         const pts = (shapePts.get(r.shapeId) || []).sort((a, b) => a[0] - b[0]);
         r.shapeLatLon = pts.map((p) => [p[1], p[2]]);
+      }
+    }
+    // A rail shape that wanders is not the train's path: IDFM draws two of the
+    // Transilien P patterns (Provins, Coulommiers) through the RER tunnels
+    // under Châtelet and Saint-Michel before they reach Gare de l'Est — 159 km
+    // for a 95 km run. Where a shape is far longer than the chain of its own
+    // stations, the stop sequence routed along the tracks draws the line.
+    if (feed.branches) {
+      const mDist = (a, b) => Math.hypot((a[0] - b[0]) * 111320, (a[1] - b[1]) * 111320 * Math.cos(a[0] * Math.PI / 180));
+      for (const r of feedReps) {
+        if (!r.shapeLatLon || r.shapeLatLon.length < 2) continue;
+        const pts = r.stopSeq.map((s) => stopsById.get(s.stopId)).filter(Boolean).map((s) => [s.lat, s.lon]);
+        let chain = 0, len = 0;
+        for (let i = 1; i < pts.length; i++) chain += mDist(pts[i - 1], pts[i]);
+        for (let i = 1; i < r.shapeLatLon.length; i++) len += mDist(r.shapeLatLon[i - 1], r.shapeLatLon[i]);
+        if (chain > 0 && len > chain * 1.25) {
+          const bad = len > chain * 1.4 + 2000;
+          log(`  shape vs stations ${r.line}/${r.dir}: ${(len / 1000).toFixed(1)} km vs ${(chain / 1000).toFixed(1)} km` +
+            (bad ? ' — wanders, routed from the stop sequence instead' : ''));
+          if (bad) r.shapeLatLon = [];
+        }
       }
     }
     // per-rep fallback: an empty shape (or a shapeless feed) → the stop
@@ -681,20 +830,32 @@ async function processMode(cfg) {
       if (!g) byStation.set(e.name, (g = []));
       g.push([id, e]);
     }
-    for (const g of byStation.values()) {
-      if (g.length < 2) continue;
-      const base = g[0][1];
-      let latS = base.lat, lonS = base.lon;
-      for (let i = 1; i < g.length; i++) {
-        const [id, e] = g[i];
-        for (const L of e.lines) base.lines.add(L);
-        for (const R of e.runs) base.runs.add(R);
-        for (const L of e.term) base.term.add(L);
-        latS += e.lat; lonS += e.lon;
-        stopAgg.delete(id);
+    for (const all of byStation.values()) {
+      if (all.length < 2) continue;
+      // one name, one place: a platform more than 1.5 km from a cluster's first
+      // one starts a cluster of its own — on a network reaching 100 km out
+      // (the RER, the Transilien) two towns may share a station name
+      const clusters = [];
+      for (const it of all) {
+        const c = clusters.find((c) => Math.hypot((c[0][1].lat - it[1].lat) * 111320,
+          (c[0][1].lon - it[1].lon) * 111320 * Math.cos(it[1].lat * Math.PI / 180)) < 1500);
+        if (c) c.push(it); else clusters.push([it]);
       }
-      base.lat = latS / g.length;
-      base.lon = lonS / g.length;
+      for (const g of clusters) {
+        if (g.length < 2) continue;
+        const base = g[0][1];
+        let latS = base.lat, lonS = base.lon;
+        for (let i = 1; i < g.length; i++) {
+          const [id, e] = g[i];
+          for (const L of e.lines) base.lines.add(L);
+          for (const R of e.runs) base.runs.add(R);
+          for (const L of e.term) base.term.add(L);
+          latS += e.lat; lonS += e.lon;
+          stopAgg.delete(id);
+        }
+        base.lat = latS / g.length;
+        base.lon = lonS / g.length;
+      }
     }
   }
   const stopFeatures = [];

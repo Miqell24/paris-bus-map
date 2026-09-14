@@ -26,8 +26,11 @@ const PEN_CONTRAFLOW = 2.5;
 // tram tracks and surface rail (parts of M1 run in a rail-tagged corridor; plain
 // rail also brings the suburban railway, which is harmless — Viterbi consistency
 // keeps each line on its own connected network). Depot tracks excluded.
-const RAIL_OK = new Set(['subway', 'tram', 'light_rail', 'rail']);
+// funicular: the Montmartre funicular; gondola: the Câble C1 (14.09.2026)
+const RAIL_OK = new Set(['subway', 'tram', 'light_rail', 'rail', 'funicular', 'monorail']);
+const AERIAL_OK = new Set(['gondola', 'cable_car']);
 function tramAccess(tags) {
+  if (tags && AERIAL_OK.has(tags.aerialway)) return { restricted: false, driveway: false };
   if (!tags || !RAIL_OK.has(tags.railway)) return null;
   const s = tags.service;
   if (s === 'yard' || s === 'siding' || s === 'spur' || s === 'crossover') return null;

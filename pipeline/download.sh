@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Downloads input data: IDFM GTFS feed, OSM networks (Overpass), MapLibre GL.
+# Downloads input data: IDFM GTFS feed, OSM networks (Geofabrik extracts, Overpass as fallback), MapLibre GL.
 # Everything is cached — re-running only fetches what is missing.
 #
 # ONE feed covers the whole Île-de-France (~2000 lines, all operators after
 # the market opening — RATP alone runs only 76 bus routes now), so the map's
 # scope is computed by pipeline/scope.mjs into data/scope.json: buses of the
-# city + petite couronne, all trams, the whole metro. Modes are separated by
+# city + petite couronne, all trams, the whole metro, the RER and Transilien
+# with the funicular, the C1 and the two VALs. Modes are separated by
 # route_type at build time.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -46,7 +47,24 @@ if [ ! -f data/scope.json ]; then
   node pipeline/scope.mjs
 fi
 
-# 2) OSM — roadways over the scope extent (48.62–49.03 N, 1.94–2.91 E plus
+# 2) OSM from the Geofabrik extracts (14.09.2026): the RER and the Transilien
+#    run to Montargis, Dreux, Gisors, Crépy-en-Valois and Château-Thierry, a
+#    rail box no Overpass mirror serves, so pipeline/pbf-cut.py cuts all three
+#    files (roads, city rails, the regional rail network) out of Île-de-France
+#    plus the three neighbouring regions those termini lie in. The Overpass
+#    queries below stay as the fallback for the two city files.
+for R in ile-de-france picardie centre haute-normandie; do
+  if [ ! -f "data/$R-latest.osm.pbf" ]; then
+    echo "== Geofabrik $R =="
+    curl -fL --retry 3 --max-time 3600 -o "data/$R-latest.osm.pbf" \
+      "https://download.geofabrik.de/europe/france/$R-latest.osm.pbf" || rm -f "data/$R-latest.osm.pbf"
+  fi
+done
+if [ ! -f data/osm/idf-rail.json ] || [ ! -f data/osm/paris.json ] || [ ! -f data/osm/paris-rail.json ]; then
+  python3 pipeline/pbf-cut.py || echo "pbf-cut.py failed — falling back to Overpass for the city files" >&2
+fi
+
+# 2a) OSM — roadways over the scope extent (48.62–49.03 N, 1.94–2.91 E plus
 #    margin; the T13 tram-train reaches Saint-Germain in the west, N142 exits
 #    to Marne-la-Vallée in the east)
 if [ ! -f data/osm/paris.json ]; then
@@ -91,5 +109,6 @@ if [ ! -f web/vendor/maplibre-gl.js ]; then
   curl -fL --retry 3 -o web/vendor/maplibre-gl.css https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css
 fi
 
+[ -f data/osm/idf-rail.json ] || { echo "data/osm/idf-rail.json missing — the RER and Transilien need pipeline/pbf-cut.py" >&2; exit 1; }
 echo "OK — data ready:"
-du -sh data/bucharest-region.zip data/osm/paris.json data/osm/paris-rail.json 2>/dev/null || true
+du -sh data/osm/paris.json data/osm/paris-rail.json data/osm/idf-rail.json 2>/dev/null || true

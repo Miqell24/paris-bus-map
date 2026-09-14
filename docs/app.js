@@ -202,9 +202,13 @@ async function init() {
 
   // Panel (English, minimal): legend + mode toggles + expandable clickable line list.
   const nBus = meta.lines.filter((l) => l.mode === 'bus').length;
-  const nMetro = meta.lines.filter((l) => l.mode === 'tram' && l.line.startsWith('M')).length;
-  const nTram = meta.lines.filter((l) => l.mode === 'tram').length - nMetro;
-  document.getElementById('count').textContent = `(${nBus} bus · ${nTram} tram · ${nMetro} metro)`;
+  const nMetro = meta.lines.filter((l) => l.mode === 'tram' && /^M\d/.test(l.line)).length;
+  const nRer = meta.lines.filter((l) => l.line.startsWith('RER-')).length;
+  const nTn = meta.lines.filter((l) => l.line.startsWith('TN-')).length;
+  const nOther = meta.lines.filter((l) => ['FUN', 'CABLE-C1', 'CDGVAL', 'ORLYVAL'].includes(l.line)).length;
+  const nTram = meta.lines.filter((l) => l.mode === 'tram').length - nMetro - nRer - nTn - nOther;
+  document.getElementById('count').textContent =
+    `(${nBus} bus · ${nTram} tram · ${nMetro} metro · ${nRer} RER · ${nTn} Transilien${nOther ? ` · ${nOther} other` : ''})`;
   document.getElementById('stamp').textContent = new Date(meta.generatedAt).toLocaleDateString('en-GB');
   // The pipeline key keeps a disambiguating prefix — route merging, colour
   // lookup and selection all match on it — while everything the panel and the
@@ -446,6 +450,15 @@ async function init() {
     ['#FF5A00', '#8c3200'],
     ['#FF82B4', '#8c4863'],
     ['#FFBE00', '#8c6900'],
+    // the RER A–E and Transilien H–V letters, the funicular, the C1 gondola
+    // and the two airport VALs (14.09.2026) — IDFM colours from routes.txt
+    ['#EB2132', '#81121c'], ['#5091CB', '#2c5070'], ['#FFCC30', '#8c701a'],
+    ['#008B5B', '#004c32'], ['#B94E9A', '#662b55'],
+    ['#84653D', '#493822'], ['#CEC73D', '#716d22'], ['#9B9842', '#555424'],
+    ['#C4A4CC', '#6c5a70'], ['#00B297', '#006253'], ['#F58F53', '#874f2e'],
+    ['#F49FB3', '#865762'], ['#B6134C', '#640a2a'], ['#9F9825', '#575414'],
+    ['#AFAFAF', '#606060'], ['#3C91DC', '#215079'], ['#5CC5ED', '#336c82'],
+    ['#5EC5ED', '#346c82'],
   ];
   const discIcon = (fill, rim, half) => {
     const S = 48;
@@ -490,7 +503,8 @@ async function init() {
     const darken = (hex) => '#' + (hex.match(/[0-9a-f]{2}/gi) || [])
       .map((h) => Math.round(parseInt(h, 16) * 0.45).toString(16).padStart(2, '0')).join('');
     m.on('styleimagemissing', (e) => {
-      const g = /^(stop|dot|badge)-(#[0-9a-f]{6})(-t)?$/.exec(e.id);
+      // `i`: the pipeline emits feed colours in upper case
+      const g = /^(stop|dot|badge)-(#[0-9a-f]{6})(-t)?$/i.exec(e.id);
       if (!g || m.hasImage(e.id)) return;
       const [, kind, c, t] = g;
       if (kind === 'badge') {

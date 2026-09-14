@@ -11,10 +11,12 @@
 //     podmiejskie ekspresy 7823 i 3754 z paryską głową);
 //   - odpadają IDFM:C00208 („31" z Roissy) i IDFM:C00343 („6" z Vallée Sud):
 //     mapa kluczuje linie numerem, a te dublują numery linii śródmiejskich.
-//  tramwaje (0): wszystkie T1–T14; odpadają lotniskowe CDG VAL i ORLYVAL.
+//  tramwaje (0): wszystkie T1–T14; lotniskowe CDG VAL i ORLYVAL idą do extra.
 //  metro (1): wszystkie (M1–M14 + 3bis/7bis).
-//  poza mapą w całości: RER/Transilien (2), funikular Montmartre (7),
-//  kolejka linowa Câble C1 (6).
+//  kolej (2, od 14.09.2026): RER A–E i Transilien H–V w całości, do prawdziwych
+//   końców (Montargis, Dreux, Gisors, Château-Thierry); odpadają TER.
+//  extra (od 14.09.2026): funikular Montmartre (7), kolejka linowa Câble C1 (6),
+//   CDG VAL i ORLYVAL.
 //
 // Uruchamiane przez download.sh po pobraniu GTFS; build.mjs wymaga wyniku.
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -41,7 +43,7 @@ const log = (m) => console.log(`[scope ${((Date.now() - t0) / 1000).toFixed(0)}s
 const agency = new Map();
 for (const a of await readCsv(join(GD, 'agency.txt'))) agency.set(a.agency_id, a.agency_name);
 
-const busCand = new Set(), tram = [], metro = [];
+const busCand = new Set(), tram = [], metro = [], rail = [], extra = [];
 for (const r of await readCsv(join(GD, 'routes.txt'))) {
   const an = agency.get(r.agency_id) || '';
   if (r.route_type === '3') {
@@ -50,9 +52,13 @@ for (const r of await readCsv(join(GD, 'routes.txt'))) {
     busCand.add(r.route_id);
   } else if (r.route_type === '0') {
     if (!BAD_TRAMS.has((r.route_short_name || '').trim())) tram.push(r.route_id);
+    else extra.push(r.route_id);
   } else if (r.route_type === '1') metro.push(r.route_id);
+  else if (r.route_type === '2') {
+    if (an === 'RER' || an === 'Transilien') rail.push(r.route_id);
+  } else if (r.route_type === '6' || r.route_type === '7') extra.push(r.route_id);
 }
-log(`kandydatów bus: ${busCand.size}, tram: ${tram.length}, metro: ${metro.length}`);
+log(`kandydatów bus: ${busCand.size}, tram: ${tram.length}, metro: ${metro.length}, RER+Transilien: ${rail.length}, extra: ${extra.length}`);
 
 const mx = 111320 * Math.cos(48.85 * Math.PI / 180), my = 111132;
 const stopKm = new Map();
@@ -92,5 +98,5 @@ for (const [rid, stops] of rStops) {
 }
 log(`wybrano bus: ${bus.length} (odrzucone limitem ${CAP_KM} km: ${cut})`);
 writeFileSync(join(ROOT, 'data/scope.json'),
-  JSON.stringify({ bus: bus.sort(), tram: tram.sort(), metro: metro.sort() }, null, 0));
+  JSON.stringify({ bus: bus.sort(), tram: tram.sort(), metro: metro.sort(), rail: rail.sort(), extra: extra.sort() }, null, 0));
 log('zapisano data/scope.json');

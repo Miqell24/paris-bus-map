@@ -117,19 +117,21 @@
   </div>
   <ul class="legend">
     <li><label><input type="checkbox" id="toggle-bus" checked> <span class="sw line"></span> Bus routes</label></li>
-    <li class="sublegend">City + petite couronne network of every IDFM operator (RER/Transilien rail not on this map)</li>
+    <li class="sublegend">City + petite couronne network of every IDFM operator</li>
     <li><label><input type="checkbox" id="toggle-tram" checked> <span class="sw line tram"></span> Tram routes</label></li>
     <li class="sublegend">T1&ndash;T14 incl. the T4/T11/T12/T13 tram-trains</li>
-    <li><label><input type="checkbox" id="toggle-metro" checked> <span class="sw line metro"></span> Metro</label></li>
-    <li class="sublegend">1&ndash;14 plus 3bis and 7bis, in the official line colours &mdash; the numbers the roundels carry</li>
+    <li><label><input type="checkbox" id="toggle-metro" checked> <span class="sw line metro"></span> Metro, RER &amp; Transilien</label></li>
+    <li class="sublegend">Metro 1&ndash;14 plus 3bis and 7bis, in the official line colours &mdash; the numbers the roundels carry</li>
     <li class="sublegend">Nine of them are also bus numbers in this area (1, 2, 3, 6, 7, 8, 11, 13, 14); the line&rsquo;s own colour against the
       <span class="mini"></span> navy of a bus is the difference, and the panel lists the metro on its own.</li>
+    <li class="sublegend">RER A&ndash;E and Transilien H, J, K, L, N, P, R, U, V, every branch to its real end &mdash; Cergy, Saint-Rémy, Dourdan, Malesherbes, Montargis, Dreux, Gisors, Crépy-en-Valois, Château-Thierry</li>
+    <li class="sublegend">Also the Montmartre funicular, the C1 cable car (Créteil &ndash; Villeneuve-Saint-Georges) and the airport shuttles CDGVAL and Orlyval</li>
     <li><span class="sw stop"></span> Stop</li>
     <li><span class="sw terminus"></span> Terminus</li>
   </ul>
   <details class="lines">
     <summary>All lines <span id="count"></span></summary>
-    <p class="hint">Click a line to show its route and stops. One IDFM network: city and couronne buses, trams and the metro share the map.</p>
+    <p class="hint">Click a line to show its route and stops. One IDFM network: city and couronne buses, trams, the metro, the RER and the Transilien share the map.</p>
     <div id="chips" class="chip-cloud"></div>
   </details>
   <div class="labelsize" title="Scales the transit content — line numbers, stop names and terminus badges — at any zoom. The PNG exports use the sizes you pick here.">
@@ -165,7 +167,7 @@
   <label class="debug"><input type="checkbox" id="toggle-shape"> show raw GTFS shapes (QA)</label>
 </aside>
 <script src="vendor/maplibre-gl.js"></script>
-<script src="app.js?v=20260911n"></script>
+<script src="app.js?v=20260914a"></script>
 <script src="pdf-export.js?v=20260911a"></script>
 <script>
 (() => {
