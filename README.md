@@ -10,7 +10,7 @@ and track geometry, weighted mean matching error 0.27 m.
 
 ## Live
 
-**https://miqell24.github.io/paris-bus-map/** — GitHub Pages from `main:/docs`. Local build on port 8152 (`npm run serve`).
+**https://agcghub.github.io/paris-bus-map/** — GitHub Pages from `main:/docs`. Local build on port 8152 (`npm run serve`).
 
 Everything comes from ONE feed — the IDFM regional GTFS
 (https://eu.ftp.opendatasoft.com/stif/GTFS/IDFM-gtfs.zip, the whole
